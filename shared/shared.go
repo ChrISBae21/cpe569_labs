@@ -72,6 +72,7 @@ func (m *Membership) Update(payload Node, reply *Node) error {
 // Returns a node with specific ID.
 func (m *Membership) Get(payload int, reply *Node) error {
 	*reply = m.Members[payload]
+	return nil
 }
 
 /*---------------*/
@@ -90,7 +91,7 @@ type Requests struct {
 // Returns a new instance of a Membership (pointer).
 func NewRequests() *Requests {
 	return &Requests{
-		Pending: make(map[int]Membership)
+		Pending: make(map[int]Membership),
 	}
 }
 
@@ -103,12 +104,31 @@ func (req *Requests) Add(payload Request, reply *bool) error {
 
 // Listens to communication from neighboring nodes.
 func (req *Requests) Listen(ID int, reply *Membership) error {
-	
-	*reply = 
+	table, ok := req.Pending[ID]
+	if ok {
+		*reply = table
+		delete(req.Pending, ID)
+	}
 	return nil
 }
 
-func combineTables(table1 *Membership, table2 *Membership) *Membership {
-	
+// combines membership tables taking the largest heartbeat per node
+func CombineTables(table1 *Membership, table2 *Membership) *Membership {
+	combined := NewMembership()
+
+	// get a copy of the first table
+	for id, node := range table1.Members {
+		combined.Members[id] = node
+	}
+
+	// start comparing with the second table
+	for id, t2_node := range table2.Members {
+		t1_node, ok := combines.Members[id]
+		if !ok || t2_node.Hbcounter > t1_node.Hbcounter {
+			combined.Members[id] = t2_node
+		}
+	}
+	return combined
+
 }
 

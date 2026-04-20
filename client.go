@@ -23,16 +23,16 @@ var self_node shared.Node
 
 // Send the current membership table to a neighboring node with the provided ID
 func sendMessage(server rpc.Client, id int, membership shared.Membership) {
-	req := shared.Request{ID: id, Membership: membership}	// create a new request with this node's membership table
+	req := shared.Request{ID: id, Table: membership}	// create a new request with this node's membership table
 	var reply bool
-	server.Call(Requests.Add, req, &reply)	// remotely call the Add function to add the request to the id we are sending to
+	server.Call("Requests.Add", req, &reply)	// remotely call the Add function to add the request to the id we are sending to
 }
 
 // Read incoming messages from other nodes
 func readMessages(server rpc.Client, id int, membership shared.Membership) *shared.Membership {
 	var req shared.Membership
-	server.Call(Requests.Listen, id, &req)
-	//TODO combine tables
+	server.Call("Requests.Listen", id, &req)
+	return shared.CombineTables(&membership, &req)
 }
 
 func calcTime() float64 {
@@ -93,15 +93,29 @@ func main() {
 }
 
 func runAfterX(server *rpc.Client, node *shared.Node, membership **shared.Membership, id int) {
-	//TODO
+	node.Hbcounter++
+	node.Time = calcTime()
+	var reply shared.Node
+	server.Call("Membership.Update", *node, &reply)
+	(*membership).Members[id] = *node
+	time.AfterFunc(time.Second*X_TIME, func() { runAfterX(server, node, membership, id) })
 }
 
 func runAfterY(server *rpc.Client, neighbors [2]int, membership **shared.Membership, id int) {
-	//TODO
+    for _, n := range neighbors {
+        sendMessage(*server, n, **membership)
+    }
+    updated := readMessages(*server, id, **membership)
+    if updated != nil {
+        *membership = updated
+    }
+    time.AfterFunc(time.Second*Y_TIME, func() { runAfterY(server, neighbors, membership, id) })
+
 }
 
 func runAfterZ(server *rpc.Client, id int) {
-	//TODO
+	fmt.Println("Node", id, "has crashed")
+    wg.Done()
 }
 
 
