@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -97,13 +96,24 @@ func NewRequests() *Requests {
 
 // Adds a new message request to the pending list
 func (req *Requests) Add(payload Request, reply *bool) error {
-	req.Pending[payload.ID] = payload.Table
+
+	// check to see if a different node already made a request to this node
+	existing, ok := req.Pending[payload.ID]
+	// if there is an existing request, merge them
+	if ok {
+		merged := CombineTables(&existing, &payload.Table)
+		req.Pending[payload.ID] = *merged
+	} else {	// otherwise create a new request
+		req.Pending[payload.ID] = payload.Table
+	}
 	*reply = true
 	return nil
 }
 
 // Listens to communication from neighboring nodes.
 func (req *Requests) Listen(ID int, reply *Membership) error {
+
+	// proceed only if there is a pending request
 	table, ok := req.Pending[ID]
 	if ok {
 		*reply = table
@@ -123,7 +133,9 @@ func CombineTables(table1 *Membership, table2 *Membership) *Membership {
 
 	// start comparing with the second table
 	for id, t2_node := range table2.Members {
-		t1_node, ok := combines.Members[id]
+		t1_node, ok := combined.Members[id]
+		// add if the node doesn't exist in t1's membership OR
+		// if the heartbeat in t2 is more recent that t1
 		if !ok || t2_node.Hbcounter > t1_node.Hbcounter {
 			combined.Members[id] = t2_node
 		}

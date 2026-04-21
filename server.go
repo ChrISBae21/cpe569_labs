@@ -2,7 +2,7 @@ package main
 
 import (
 	"io"
-	"lab2/shared"
+	"cpe569_lab2_gossip/shared"
 	"net/http"
 	"net/rpc"
 )
